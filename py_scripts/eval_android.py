@@ -29,7 +29,7 @@ from tqdm import tqdm
 from correction_network.networks import Net_Snapshot
 
 weight_dict = {
-    '15': "android_transformer_1000ep_2021-08-25_16-53-59",
+    '15': "android_WX_test_2023-02-27_20-38-46",
     '30': "android_transformer_1000ep_pos30_2021-08-28_11-23-06",
 }
 
@@ -37,7 +37,7 @@ key_wt = 15   # initialization range (from training) to use
 
 config = {
     "root": os.path.join(data_directory),
-    "raw_data_dir" : "val",
+    "raw_data_dir" : "val/Route1",
     "data_dir": "android_val_processed",
     "guess_range": [key_wt, key_wt, key_wt, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5],
     "history": 1,
@@ -52,7 +52,7 @@ config = {
 dataset = Android_GNSS_Dataset(config)
 
 net = Net_Snapshot(dataset[0]['features'].size()[1], 1, len(dataset[0]['true_correction']))
-net.load_state_dict(torch.load(os.path.join(data_directory, 'weights', weight_dict[str(key_wt)])))
+net.load_state_dict(torch.load(os.path.join(data_directory, 'weights','Route1', weight_dict[str(key_wt)])))
 net.cuda()
 
 # Create empty dicts and lists
@@ -63,14 +63,17 @@ ls_rand_net = {}
 ls_wls1_net = {}
 
 y_ls = []
+y_lla_ls = []
 y_hat_ls = []
+y_lla_hat_ls = []
 y_wls_ls = []
 
 ls_gt = {}
 ls_gt_corr = {}
 
 # val_idx_list = [2888, 2988]
-val_idx_list = [1, 100]
+# val_idx_list = [1, 100]
+val_idx_list = [0, len(dataset)]
 for b_t_sel in range(len(val_idx_list)-1):
     b_t_idx = val_idx_list[b_t_sel]
     b_key, t_idx = dataset.indices[b_t_idx]
@@ -82,7 +85,7 @@ for b_t_sel in range(len(val_idx_list)-1):
     true_XYZb = np.array([_gt_data['ecefX'], _gt_data['ecefY'], _gt_data['ecefZ'], _gt_data['b']])
     base_frame = coord.LocalCoord.from_ecef(true_XYZb[:3])
 
-    in1 = pd.read_csv(os.path.join(dirname, 'goGPS_WLS.csv'))
+    # in1 = pd.read_csv(os.path.join(dirname, 'goGPS_WLS.csv'))
     b_key = b_key[0]
 
     print(b_key, b_t_idx)
@@ -109,25 +112,35 @@ for b_t_sel in range(len(val_idx_list)-1):
         _y = net(x.unsqueeze(1)).cpu().detach().numpy()
         _ecef_net_rand = ref_local.ned2ecef(_y[0, :])[:, 0]
         ls_rand_net[times[t_idx]] = _ecef_net_rand
+        y_lla_hat = coord.ecef2geodetic(_ecef_net_rand)
         ls_gt_corr[times[t_idx]] = ref_local.ned2ecef(y)[:, 0]
+        y_lla = coord.ecef2geodetic(ls_gt_corr[times[t_idx]])
         y_ls.append(y)
+        y_lla_ls.append(y_lla)
         y_hat_ls.append(_y)
+        y_lla_hat_ls.append(y_lla_hat)
 
     #     WLS1
-        _int1 = in1[in1['GPS Time[s]']==times[t_idx]]
-        _ecef1 = np.array([_int1['ECEF X[m]'].to_numpy()[0], _int1['ECEF Y[m]'].to_numpy()[0], _int1['ECEF Z[m]'].to_numpy()[0], _int1['Clock Bias[s]'].to_numpy()[0]*3e8])
-        ls_wls1[times[t_idx]] = _ecef1[:3]
-        y_wls_ls.append(ref_local.ecef2ned(_ecef1[:3, None])[:, 0])
+        # _int1 = in1[in1['GPS Time[s]']==times[t_idx]]
+        # _ecef1 = np.array([_int1['ECEF X[m]'].to_numpy()[0], _int1['ECEF Y[m]'].to_numpy()[0], _int1['ECEF Z[m]'].to_numpy()[0], _int1['Clock Bias[s]'].to_numpy()[0]*3e8])
+        # ls_wls1[times[t_idx]] = _ecef1[:3]
+        # y_wls_ls.append(ref_local.ecef2ned(_ecef1[:3, None])[:, 0])
 
-        ls_gt[times[t_idx]] = true_XYZb[:3]
+        # ls_gt[times[t_idx]] = true_XYZb[:3]
 
 
         b_t_idx += 1
 
-y_diff = (np.array(y_ls) - np.squeeze(np.array(y_hat_ls), axis=1))
+y_diff = (np.array(y_ls) - np.squeeze(np.array(y_hat_ls), axis=1)) ## y_diff = true_NED - hat_NED
 y_og = np.array(y_ls)
-y_wls = np.array(y_ls) - np.array(y_wls_ls)
+# y_wls = np.array(y_ls) - np.array(y_wls_ls)
 
 print("Mean positioning error along NED in initial positions (m): ", np.mean(np.abs(y_og), axis=0))
 print("Mean positioning error along NED in DNN corrected positions (m): ", np.mean(np.abs(y_diff), axis=0))
-print("Mean positioning error along NED in WLS positions (m): ", np.nanmean(np.abs(y_wls), axis=0))
+# print("Mean positioning error along NED in WLS positions (m): ", np.nanmean(np.abs(y_wls), axis=0))
+
+y_lla_hat_ls_df = pd.DataFrame(np.array(y_lla_hat_ls))
+y_lla_hat_ls_df.to_csv('Corrected_Position_set_transformer.csv')
+
+y_lla_ls_df = pd.DataFrame(np.array(y_lla_ls))
+y_lla_ls_df.to_csv('GT_set_transformer.csv')
