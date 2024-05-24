@@ -3,15 +3,16 @@
 # Date:         21 September 2021
 # Desc:         Code to read Android raw GNSS measurement logs
 ########################################################################
-import os, sys
-import csv
-import pandas as pd
-import numpy as np
-from datetime import datetime, timezone, timedelta
+# 导入模块
+import os, sys  # 处理文件操作
+import csv  # 读取和写入csv文件
+import pandas as pd  # 数据处理
+import numpy as np  # 数值计算
+from datetime import datetime, timezone, timedelta  # 日期和时间操作
 from .constants import *
 pd.options.mode.chained_assignment = None
 
-# Extract data different timesteps
+# Extract data different timesteps提取不同时间步函数
 def extract_timedata(input_path):
   raw_data = []
   fix_data = []
