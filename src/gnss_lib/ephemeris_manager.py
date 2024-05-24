@@ -42,10 +42,10 @@ class EphemerisManager():
         return self.leapseconds
 
     def load_data(self, timestamp, constellations=None):
-        filepaths = EphemerisManager.get_filepaths(timestamp)
+        filepaths = EphemerisManager.get_filepaths(timestamp)  # 获取指定时间戳星历数据文件路径
         data_list = []
         timestamp_age = datetime.now(timezone.utc) - timestamp
-        if constellations == None:
+        if constellations == None:  # 未指定星座则加载所有文件
             for fileinfo in filepaths.values():
                 data = self.get_ephemeris_dataframe(fileinfo)
                 data_list.append(data)
@@ -54,27 +54,32 @@ class EphemerisManager():
             legacy_systems_only = len(constellations - legacy_systems) == 0
             if timestamp_age.days > 0:
                 if legacy_systems_only:
+                    # 加载遗留系统每日数据文件
                     data_list.append(self.get_ephemeris_dataframe(
                         filepaths['nasa_daily_gps']))
                     if 'R' in constellations:
                         data_list.append(self.get_ephemeris_dataframe(
                             filepaths['nasa_daily_glonass']))
                 else:
+                    # 加载组合文件
                     data_list.append(self.get_ephemeris_dataframe(
                         filepaths['nasa_daily_combined']))
             else:
+                # 加载当前每日数据文件
                 data_list.append(self.get_ephemeris_dataframe(
                     filepaths['nasa_daily_gps']))
                 if not legacy_systems_only:
                     data_list.append(self.get_ephemeris_dataframe(
                         filepaths['bkg_daily_combined']))
 
+        # 合并所有加载数据并排序
         data = pd.DataFrame()
         data = data.append(data_list, ignore_index=True)
         data.reset_index(inplace=True)
         data.sort_values('time', inplace=True, ignore_index=True)
         self.data = data
 
+    # 下载星历文件处理成DataFrame
     def get_ephemeris_dataframe(self, fileinfo, constellations=None):
         filepath = fileinfo['filepath']
         url = fileinfo['url']
@@ -125,6 +130,7 @@ class EphemerisManager():
             extension = '.Z'
         return extension
 
+    # 从星历文件头中解析闰秒
     @staticmethod
     def load_leapseconds(filename):
         with open(filename) as f:
@@ -134,6 +140,7 @@ class EphemerisManager():
                 if 'END OF HEADER' in line:
                     return None
 
+    # 利用卫星标识符识别卫星系统
     @staticmethod
     def get_constellations(satellites):
         if type(satellites) is list:
