@@ -14,7 +14,7 @@ import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import pytz
 from datetime import datetime
 
-# Imports from local packages: gnss_lib
+# Imports from local packages: gnss_lib 引入两个函数
 from gnss_lib.coordinates import geodetic2ecef
 from totalrecall.simulator_utils import save_simulated_dataset
 
@@ -25,16 +25,18 @@ x_LLA = np.reshape([37.427112, -122.1764146, 16], [1, 3])
 start_ECEF = np.reshape(geodetic2ecef(x_LLA), [3, 1])
 steps = 1000
 
-
+# 数据存储在/data/simulated_nonoise/gnss_measurements
 savepath = data_directory + '/simulated_nonoise/gnss_measurements/'
 
 traject_func = "traject_gen_zigzag"
 if not os.path.exists(savepath):
     os.makedirs(savepath)
 
+# 第一次添加噪声，第二次未添加噪声
 _ = save_simulated_dataset(traject_func, steps, start_time, start_ECEF, ephemeris_data_directory, save=True, savepath=savepath, noise=True)
 _ = save_simulated_dataset(traject_func, steps, start_time, start_ECEF, ephemeris_data_directory, save=True, savepath=savepath, noise=False)
 
+# 保存matlab格式
 traject_func = 'MATLAB_saved'
 # loadpath = os.path.join(path_root, '/matlab_trajectories/')
 loadpath = data_directory + '/matlab_trajectories/'
